@@ -1,0 +1,237 @@
+/* global css */
+  body {
+    font-family: 'poppins', sans-serif;
+    font-size: 16px;
+    line-height: 1.5;
+    margin: 0;
+    padding: 0;
+    color: #2669CD;
+    background-color: #F9FAFC;
+  }
+  ::-webkit-scrollbar {
+    display: none;
+}
+
+#map {
+    height: 29vh; width: 100%; 
+    border-radius: 16px;
+    ::-webkit-scrollbar {
+        display: none;
+    }
+}
+
+h1 {
+    font-size: 3em;
+    margin: 0;
+    background: linear-gradient(90deg, #2669CD 0%, #269BCD 61.5%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  
+
+  p {
+    margin: 0;
+    padding: 0;
+  }
+  
+  p.keterangan-halte {
+    margin: 0;
+    font-size: 2rem;
+  }
+
+  .container {
+    margin: 0;
+    max-width: 100%;
+    padding: 1rem;
+    padding-top: 0;
+  }
+
+  header nav {
+    max-width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.logo {
+    height: 96px;
+    margin-left: auto; /* Pushes logo to the right */
+}
+/* Information bar */
+.information-bar {
+    background-color: #269BCD;
+    max-width: 100%;
+    color: #F9FAFC;
+    padding: 0.4rem 1rem;
+    text-align: center;
+    display: flex;
+    justify-content: flex-end; /* Changed from end to flex-end */
+    align-items: center;
+    border-radius: 16px;
+}
+
+.information-bar .time {
+    font-weight: bold;
+    min-width: 90px
+}
+
+.information-bar .date {
+    min-width: 120px;
+}
+
+/* Marquee */
+.marquee {
+    font-family: poppins, sans-serif;
+    text-transform: uppercase;
+    white-space: nowrap; /* Mencegah teks pindah ke baris baru */
+    overflow: hidden;
+    position: relative; /* Memungkinkan animasi */
+}
+
+.marquee__inner {
+    display: flex;
+    margin: 0;
+}
+
+.marquee__line {
+    display: inline-block; /* Membuat teks berjalan dalam satu baris */
+    margin-right: 100%; /* Menggeser teks ke kanan sejauh lebar container */
+    animation: runningText 35s linear infinite; /* Animasi untuk membuat teks berjalan */
+
+}
+
+@keyframes runningText {
+    0% {
+        transform: translateX(100%); /* Mulai dari luar container sebelah kanan */
+    }
+    100% {
+        transform: translateX(-100%); /* Berakhir di luar container sebelah kiri */
+    }
+}
+
+main{
+    display: flex;
+    flex-direction: row;
+}
+
+.daftar-rute{
+    max-width: 360px;
+    margin: 0 1rem;
+}
+
+.daftar-rute table {
+    width: 100%;
+    border-collapse: collapse;
+    max-height: 100%;
+    overflow-y: auto;
+}
+
+.daftar-rute tbody {
+    min-height: 67vh;
+    display: block;
+    overflow-y: auto;
+    background-color: #E9F1FF;
+    border-radius: 16px 16px 0 0;
+    margin-top: 10px;
+}
+
+.daftar-rute table th {
+    background-color: #E9F1FF;
+    border-radius: 16px;
+    font-size: 24px;
+    padding: 10px;
+}
+
+.daftar-rute tbody td {
+    display: block;
+}
+
+.daftar-rute tbody td .wraped {
+    display: flex;
+    margin-top: 0.5rem;
+    padding-right: 0.5rem;
+}
+
+.daftar-rute tbody td .koridor {
+    display: flex;
+    justify-content: start;
+    align-items: center;
+    max-width: 56px;
+    padding-left: 0.5rem;
+}
+
+.daftar-rute tbody td .info {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-around;
+    padding: 1rem;
+}
+
+.daftar-rute tbody td .info .tujuan {
+    font-weight: bold;
+    margin: 0;
+    padding: 0;
+}
+
+.daftar-rute tbody td .operation {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+}
+
+
+
+.jadwal {
+    min-width: calc(100% - 350px); /* Adjusted width to fit available space */
+    justify-content: space-around;
+}
+
+.jadwal table {
+    width: 100%;
+    border-collapse: collapse;
+}
+.jadwal table thead tr{
+    display: flex;
+    justify-content: space-between;
+    background-color: #F0F3F8;
+    border-radius: 16px ;
+    font-size: 24px;
+}
+
+.jadwal table thead tr th {
+    font-size: 24px;
+    padding: 10px;
+    margin: 0 2rem;
+    text-align: left;
+}
+
+.jadwal tbody {
+    min-height: 36vh;
+    display: block;
+    overflow-y: auto;
+    background-color: #F0F3F8;
+    border-radius: 16px ;
+    margin: 10px 0;
+
+}
+
+.jadwal table tbody tr {
+    display: flex;
+    justify-content: space-between;
+    text-align: left;
+    align-items: center;
+    font-size: 24px;
+}
+
+.jadwal table tbody tr td {
+    font-size: 24px;
+    padding: 10px;
+    margin: 0 2rem;
+}
+.jadwal tbody td .koridor {
+    max-width: 56px;
+    align-items: center;
+}
+

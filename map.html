@@ -1,0 +1,558 @@
+
+
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>Bus Animation with Leaflet and OpenStreetMap</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.2.0/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
+  <link rel="stylesheet" href="Leaflet.Coordinates/dist/Leaflet.Coordinates-0.1.5.css" />
+  <link rel="stylesheet" href="Leaflet.Coordinates/dist/Leaflet.Coordinates-0.1.5.ie.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.8.0/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-responsive-popup@1.0.0/leaflet.responsive.popup.css" />
+  <script src="https://unpkg.com/leaflet-responsive-popup@1.0.0/leaflet.responsive.popup.js"></script>
+  <script src="https://unpkg.com/leaflet@1.8.0/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
+  <script src="Leaflet.Coordinates/dist/Leaflet.Coordinates-0.1.5.min.js"></script>
+</head>
+
+<body>
+  <div id="map" style="height: 100vh"></div>
+  <script>
+    var map = L.map("map").setView([-6.2074836, 106.6037775], 13);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution:
+        '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    }).addTo(map);
+    L.control
+      .coordinates({
+        position: "bottomleft",
+        useDMS: true,
+        decimal: 8,
+        decimalSeperator: ",",
+        labelTemplateLat: "Latitude: {y}",
+        labelTemplateLng: "Longitude: {x}",
+      })
+      .addTo(map);
+
+    // Simulated Bus
+    var busIcons = {
+      "koridor-1": L.icon({
+        iconUrl: "/assets/images/koridor-1.png",
+        iconSize: [16, 16],
+        iconAnchor: [8, 6],
+        popupAnchor: [0, -4],
+      }),
+      "koridor-2": L.icon({
+        iconUrl: "/assets/images/koridor-2.png",
+        iconSize: [16, 16],
+        iconAnchor: [8, 6],
+        popupAnchor: [2, 2],
+      }),
+    };
+
+    var markerIcons = {
+      "koridor-1": L.icon({
+        iconUrl: "/assets/images/halte-koridor-1.svg",
+        iconSize: [16, 16],
+        iconAnchor: [12, 16],
+        popupAnchor: [-6, -12],
+      }),
+      "koridor-2": L.icon({
+        iconUrl: "/assets/images/halte-koridor-2.svg",
+        iconSize: [16, 16],
+        iconAnchor: [12, 16],
+        popupAnchor: [-6, -12],
+      }),
+    };
+
+    class Bus {
+      constructor(code, plat, corridor, lat, lng) {
+        this.code = code;
+        this.plat = plat;
+        this.corridor = corridor;
+        this.position = L.latLng(lat, lng);
+        this.busMarker = null;
+        this.nextStop = "";
+        this.distanceToNextStop = 0;
+        this.currentRoute = ""; // Tambahkan properti ini
+      }
+
+      calculateETA(targetBusStop) {
+        const distanceToStop = this.position.distanceTo(
+          targetBusStop.position
+        );
+        const speed = 10; // Kecepatan rata-rata bus dalam m/s (sesuaikan jika perlu)
+        const estimatedTime = distanceToStop / speed;
+        return formatTime(estimatedTime);
+      }
+
+      addBus(busMarker, targetBusStop) {
+        this.busMarker = L.marker(this.position, {
+          icon: busIcons[this.corridor],
+        }).addTo(map);
+
+        this.updateRoute(targetBusStop);
+        this.busMarker.bindPopup(
+          `<div>
+                <h1><b>${this.code}</b></h1>
+                <img src="assets/images/${this.corridor
+          }.svg" style="width:48px;">
+                <p>${this.plat}</p>
+                <p>Next Stop: ${this.nextStop}</p>
+                <p>Distance to next stop: ${this.distanceToNextStop.toFixed(
+            0
+          )} m</p>
+            </div>`
+        );
+      }
+
+      async updateRoute(targetBusStop) {
+        if (targetBusStop) {
+          try {
+            const nextStopLatLng = `${targetBusStop.position.lng},${targetBusStop.position.lat}`;
+            const response = await fetch(
+              `http://router.project-osrm.org/route/v1/driving/${this.position.lng},${this.position.lat};${nextStopLatLng}?overview=false`
+            );
+            if (!response.ok) {
+              throw new Error("Failed to fetch route data");
+            }
+            const routeData = await response.json();
+            this.nextStop = targetBusStop;
+            this.distanceToNextStop = routeData.routes[0].distance;
+          } catch (error) {
+            console.error("Error fetching route data:", error);
+          }
+        }
+      }
+
+      reachFinalDestination() {
+        updateBusRoute(this);
+        this.updatePopup(); // Refresh the popup with new route
+      }
+    }
+
+    class BusStop {
+      constructor(name, lat, lng) {
+        this.name = name;
+        this.corridors = [];
+        this.position = L.latLng(lat, lng);
+        this.busArrivalTimes = {}; // Ubah menjadi objek yang menyimpan waktu dan kode bus
+        this.busStopMarker = null;
+        this.passedBuses = {};
+      }
+      addCorridor(corridorName) {
+        if (!this.corridors.includes(corridorName)) {
+          this.corridors.push(corridorName);
+        }
+      }
+      addBusArrivalTime(corridorName, busCode, arrivalTime) {
+        // If the bus is already in the arrival times, update its time
+        if (this.busArrivalTimes[corridorName] && this.busArrivalTimes[corridorName][busCode]) {
+          this.busArrivalTimes[corridorName][busCode].arrivalTime = arrivalTime;
+        } else {
+          // If the bus is not in the arrival times, add it
+          if (!this.busArrivalTimes[corridorName]) {
+            this.busArrivalTimes[corridorName] = {};
+          }
+          this.busArrivalTimes[corridorName][busCode] = { busCode, arrivalTime };
+        }
+        this.updatePopup();
+      }
+
+      removeBusArrivalTime(corridorName, busCode) {
+        // Remove the specific bus arrival time from the array
+        if (this.busArrivalTimes[corridorName] && this.busArrivalTimes[corridorName][busCode]) {
+          delete this.busArrivalTimes[corridorName][busCode];
+          // If no more buses for this corridor, remove the corridor
+          if (Object.keys(this.busArrivalTimes[corridorName]).length === 0) {
+            delete this.busArrivalTimes[corridorName];
+          }
+        }
+        this.updatePopup();
+      }
+
+      updatePopup() {
+        let popupContent = `<div>`;
+        // Add images for all corridors at the bus stop
+        for (const corridor of this.corridors) {
+          popupContent += `<img src="assets/images/${corridor}.svg" style="width:36px;">`;
+        }
+        popupContent += `<h1><b>${this.name}</b></h1></div>`;
+
+        // Loop through all corridors and their arrival times
+        for (const corridor in this.busArrivalTimes) {
+          for (const busCode in this.busArrivalTimes[corridor]) {
+            const arrivalInfo = this.busArrivalTimes[corridor][busCode];
+            popupContent += `<p>Bus ${arrivalInfo.busCode} ${corridor} arriving in: ${arrivalInfo.arrivalTime}</p>`;
+          }
+        }
+        if (this.busStopMarker) {
+          this.busStopMarker.setPopupContent(popupContent);
+        }
+      }
+
+      createBusStopMarker(corridorName) {
+        let popupContent = `<div style="display:flex;">`;
+        // Tambahkan gambar untuk semua koridor yang ada di halte bus
+        for (const corridor of this.corridors) {
+          popupContent += `<img src="assets/images/${corridor}.svg" style="width:36px; justify-content:space-between;">`;
+        }
+        popupContent += `<h1><b>${this.name}</b></h1></div>`;
+
+        this.busStopMarker = L.marker(this.position, {
+          icon: markerIcons[corridorName],
+        })
+          .addTo(map)
+          .bindPopup(popupContent);
+      }
+
+      markBusPassed(busCode, corridorName) {
+        this.passedBuses[busCode + corridorName] = true;
+        this.removeBusArrivalTime(corridorName, busCode);
+        this.updatePopup(); // Kembali ke popup awal dan perbarui gambar koridor
+      }
+    }
+    class Corridor {
+      constructor(name, busCode) {
+        this.name = name;
+        this.busCode = busCode;
+        this.busStops = {};
+        this.busStopMarkers = {};
+        this.buses = [];
+        this.maxBuses = 10;
+      }
+
+      async addBusStop(busStop, targetBusStop) {
+        this.busStops[busStop.name] = busStop;
+
+        if (!this.busStopMarkers[busStop.name]) {
+          busStop.createBusStopMarker(this.name);
+          this.busStopMarkers[busStop.name] = busStop.busStopMarker;
+        }
+
+        if (targetBusStop) {
+          const previousBusStop = Object.values(this.busStops).slice(-2)[0];
+          const previousStopLatLng = `${previousBusStop.position.lng},${previousBusStop.position.lat}`;
+          const currentStopLatLng = `${busStop.position.lng},${busStop.position.lat}`;
+          const nextStopLatLng = `${targetBusStop.position.lng},${targetBusStop.position.lat}`;
+          try {
+            const response = await fetch(
+              `http://router.project-osrm.org/route/v1/driving/${currentStopLatLng};${nextStopLatLng}?overview=false`
+            );
+            if (!response.ok) {
+              throw new Error("Failed to fetch route data");
+            }
+            const routeData = await response.json();
+            busStop.nextStop = targetBusStop.name;
+            busStop.distanceToNextStop = routeData.routes[0].distance;
+          } catch (error) {
+            console.error("Error fetching route data:", error);
+          }
+        }
+
+        busStop.addCorridor(this.name);
+      }
+
+      getBusStop(name) {
+        return this.busStops[name];
+      }
+
+      getAllBusStops() {
+        return Object.values(this.busStops);
+      }
+
+      addBus(bus) {
+        if (this.buses.length < this.maxBuses) {
+          // Check if the max buses limit is reached
+          this.buses.push(bus);
+        }
+      }
+    }
+
+    function createRoutingControl(corridors, map) {
+      const corridorColors = {
+        "koridor-1": "blue",
+        "koridor-2": "yellow",
+      };
+      return corridors.map((corridor) => {
+        const busStops = corridor.getAllBusStops();
+        const waypoints = busStops.map((busStop) => busStop.position);
+        waypoints.push(busStops[0].position);
+        const lineColor = corridorColors[corridor.name];
+        return L.Routing.control({
+          waypoints: waypoints,
+          routeWhileDragging: false,
+          show: false,
+          dragableWaypoints: false,
+          lineOptions: {
+            styles: [
+              {
+                color: lineColor,
+                opacity: 1,
+                weight: 3,
+              },
+            ],
+          },
+          createMarker: function () {
+            return null;
+          },
+        })
+          .on("routesfound", function (e) {
+            var route = e.routes[0];
+            var coordinates = route.coordinates;
+            var summary = e.routes[0].summary;
+            var bus = new Bus(
+              "TY" + Math.floor(Math.random() * 90) * 3, 
+              "B " + Math.floor(Math.random() * 9000 + 1000) + " TAC",
+              corridor.name,
+              coordinates[0].lat,
+              coordinates[0].lng
+            );
+
+            // Set initial route for the bus
+            if (corridor.name === "koridor-1") {
+              bus.currentRoute = "Jatake - Poris Plawad";
+            } else if (corridor.name === "koridor-2") {
+              bus.currentRoute = "Poris Plawad - Alun-alun Cibodas";
+            }
+
+            corridor.addBus(bus);
+            bus.addBus(
+              bus,
+              corridor.getBusStop(Object.keys(corridor.busStops)[0])
+            );
+            moveBus(bus, coordinates, corridor);
+            console.log(summary);
+          })
+          .addTo(map);
+      });
+    }
+    function moveBus(bus, coordinates, corridor) {
+      let index = 0;
+      let currentBusStopIndex = 0;
+      let speed = 10; // Kecepatan dalam meter per detik
+      let interval = 100; // Interval update dalam milidetik
+      let passedDistance = 10; // Jarak yang dianggap telah melewati halte (meter)
+
+      function animate() {
+        if (index < coordinates.length - 1) {
+          const distanceToTarget = bus.position.distanceTo(
+            coordinates[index + 1]
+          );
+          const distanceToMove = speed * (interval / 1000);
+
+          if (distanceToMove >= distanceToTarget) {
+            index++;
+            bus.position = L.latLng(coordinates[index]);
+          } else {
+            bus.position = L.latLng(
+              (bus.position.lat + coordinates[index + 1].lat) / 2,
+              (bus.position.lng + coordinates[index + 1].lng) / 2
+            );
+          }
+
+          bus.busMarker.setLatLng(bus.position);
+
+          const busStopKeys = Object.keys(corridor.busStops);
+          const totalBusStops = busStopKeys.length;
+          const nextBusStopIndex = (currentBusStopIndex + 1) % totalBusStops;
+          const nextBusStop = corridor.getBusStop(
+            busStopKeys[nextBusStopIndex]
+          );
+          const currentBusStop = corridor.getBusStop(
+            busStopKeys[currentBusStopIndex]
+          );
+
+          if (nextBusStop) {
+            const distanceToNextStop = bus.position.distanceTo(
+              nextBusStop.position
+            );
+            const estimatedArrivalTime = bus.calculateETA(nextBusStop);
+
+            bus.busMarker.setPopupContent(
+              `<div style="font-family: Arial, sans-serif;">
+        <div style="display: flex; align-items: center;">
+            <div style="flex-shrink: 0;">
+                <img src="assets/images/${bus.corridor}.svg" style="width:48px;">
+            </div>
+            <div style="margin-left: 10px;">
+                <h1 style="margin: 0; font-size: 16px;"><b>${bus.code}</b></h1>
+                <p style="margin: 5px 0;">${bus.plat}</p>
+                <p style="margin: 5px 0;">Route: ${bus.currentRoute}</p>
+            </div>
+        </div>
+        <div style="margin-top: 10px;">
+            <p style="margin: 5px 0;">Next Stop: <b>${nextBusStop.name}</b></p>
+            <p style="margin: 5px 0;">Estimated arrival: <b>${estimatedArrivalTime}</b></p>
+        </div>
+    </div>`
+            );
+
+            nextBusStop.addBusArrivalTime(
+              bus.corridor,
+              bus.code,
+              estimatedArrivalTime
+            );
+
+            if (distanceToNextStop <= passedDistance) {
+              currentBusStopIndex = nextBusStopIndex;
+              nextBusStop.markBusPassed(bus.code, bus.corridor);
+
+              if (currentBusStop) {
+                currentBusStop.markBusPassed(bus.code, bus.corridor);
+              }
+            }
+          }
+
+          setTimeout(animate, interval);
+        } else {
+          index = 0;
+          currentBusStopIndex = 0;
+          bus.position = L.latLng(coordinates[0]);
+          animate();
+        }
+      }
+      animate();
+    }
+
+    function formatTime(seconds) {
+      const hours = Math.floor(seconds / 3600);
+      const minutes = Math.floor((seconds % 3600) / 60);
+
+      if (hours > 0) {
+        return `${hours} jam ${minutes} menit`;
+      } else if (minutes === 0) {
+        return "1 menit";
+      } else {
+        return `${minutes} menit`;
+      }
+    }
+
+    // Membuat instance dari kelas BusStop
+    const jatake = new BusStop("Jatake", -6.2002793, 106.5740835);
+    const lembagaPermasyarakatan = new BusStop(
+      "Lembaga Permasyarakatan",
+      -6.1662847,
+      106.6468223
+    );
+    const tanahTinggi = new BusStop(
+      "Stasiun Tanah Tinggi",
+      -6.175304905620621,
+      106.64647013286424
+    );
+    const porisPlawad = new BusStop(
+      "Poris Plawad",
+      -6.173535208406348,
+      106.66384935389944
+    );
+    const imigrasi = new BusStop(
+      "Imigrasi",
+      -6.170556675860652,
+      106.64399913941759
+    );
+    const smpNegeri5Tangerang = new BusStop(
+      "SMP Negeri 5 Tangerang",
+      -6.1673159,
+      106.641795
+    );
+    const tamanPisang = new BusStop(
+      "Taman Pisang",
+      -6.210780405454813,
+      106.61488872865408
+    );
+    const sawo = new BusStop("Sawo", -6.2140173, 106.6093523);
+    const borobudur = new BusStop(
+      "Borobudur",
+      -6.214773198672391,
+      106.60197060283585
+    );
+    const alunAlunPam = new BusStop(
+      "Alun-Alun PAM Cibodas",
+      -6.207308325505252,
+      106.60547688823107
+    );
+    const smpn6Tangerang = new BusStop(
+      "SMP Negeri 6 Tangerang",
+      -6.2074886,
+      106.6132225
+    );
+    const terminalCimone = new BusStop(
+      "Terminal Cimone",
+      -6.186198256476928,
+      106.61542744880222
+    );
+
+    // Membuat instance dari kelas Corridor dengan kode bus yang berbeda
+    const corridor1 = new Corridor("koridor-1");
+    const corridor2 = new Corridor("koridor-2");
+
+    // Menambahkan BusStop ke Corridor
+    corridor1.addBusStop(jatake, lembagaPermasyarakatan);
+    corridor1.addBusStop(lembagaPermasyarakatan, tanahTinggi);
+    corridor1.addBusStop(tanahTinggi, porisPlawad);
+    corridor1.addBusStop(porisPlawad, imigrasi);
+    corridor1.addBusStop(imigrasi, smpNegeri5Tangerang);
+    corridor1.addBusStop(smpNegeri5Tangerang, terminalCimone);
+    corridor1.addBusStop(terminalCimone, jatake);
+
+    corridor2.addBusStop(porisPlawad, tamanPisang);
+    corridor2.addBusStop(tamanPisang, sawo);
+    corridor2.addBusStop(sawo, borobudur);
+    corridor2.addBusStop(borobudur, alunAlunPam);
+    corridor2.addBusStop(alunAlunPam, smpn6Tangerang);
+    corridor2.addBusStop(smpn6Tangerang, tanahTinggi);
+    corridor2.addBusStop(tanahTinggi, porisPlawad);
+
+    // Membuat array dari Corridor
+    const corridors = [corridor1, corridor2];
+    // tambahkan Corridor lainnya ke array di sini
+    console.log(corridors);
+
+    // Membuat Routing Control untuk setiap Corridor
+    const routingControls = createRoutingControl(corridors, map);
+
+  
+
+    // Send bus arrival data to index.html
+    setInterval(() => {
+  const busArrivals = []; // Clear the array at the start of each iteration
+  const uniqueBuses = new Set(); // To track unique buses by a combination of their properties
+
+  corridors.forEach((corridor) => {
+    corridor.getAllBusStops().forEach((busStop) => {
+      // Check if the bus stop is Tanah Tinggi
+      if (busStop.name === "Stasiun Tanah Tinggi") {
+        // Iterate through arrival times at the current stop
+        for (const corridorName in busStop.busArrivalTimes) {
+          for (const busCode in busStop.busArrivalTimes[corridorName]) {
+            const arrivalInfo = busStop.busArrivalTimes[corridorName][busCode];
+            const busKey = `${corridorName}-${busStop.name}-${arrivalInfo.busCode}`;
+
+            if (!uniqueBuses.has(busKey)) {
+              uniqueBuses.add(busKey);
+
+              busArrivals.push({
+                corridor: corridorName,
+                destination: "Poris Plawad",
+                code: arrivalInfo.busCode,
+                estimatedArrivalTime: arrivalInfo.arrivalTime,
+              });
+            }
+          }
+        }
+      }
+    });
+  });
+
+  // Send the bus arrival data to index.html
+  window.parent.postMessage({ type: "busArrival", busArrivals }, "*");
+}, 1000); // Update every 1 second
+
+  </script>
+</body>
+
+</html>

@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="assets/styles.css">
+    <link rel="shortcut icon" href="assets/images/icon-tangerang-ayo.svg" type="image/x-icon">
+    <title>Tangerang Ayo</title>
+</head>
+<body>
+    <header>
+        <nav class="container">
+            <div class="halte">
+                <h1 class="nama-halte">Halte Tanah Tinggi</h1>
+                <p  class="keterangan-halte">Arah Poris</p>
+            </div>
+            <div class="logo">
+                <img src="assets/images/logo-tangerang-ayo.svg" alt="Logo Tangerang Ayo" class="logo">
+            </div>
+        </nav>
+        <div class="container">
+            <div class="information-bar">
+                <div class="marquee">
+                    <div class="marquee__inner">
+                      <p class="marquee__line">Pastikan Anda selalu memperhatikan barang bawaan Anda agar tidak tertinggal ketika naik atau turun dari bus. Perhatikan setiap langkah dengan hati-hati saat Anda keluar dari kendaraan. Selalu sediakan masker dan hand sanitizer saat bepergian. Utamakan jarak dan hindari kerumunan untuk keselamatan bersama. </p>
+                    </div>
+                  </div>
+                <div class="date">
+                    <p></p>
+                </div>
+                <div class="time">
+                    <p></p>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <section class="daftar-rute">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Daftar Rute</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>
+                            <div class="wraped">
+                                <div class="koridor">
+                                    <img src="assets/images/koridor-1.svg" alt="Koridor 1" class="koridor">
+                                </div>
+                                <div class="info">
+                                    <p class="tujuan">Poris Plawad - Jatake</p>
+                                    <p class="operational">05:00 - 19:00</p>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="wraped">
+                                <div class="koridor">
+                                    <img src="assets/images/koridor-2.svg" alt="Koridor 2" class="koridor">
+                                </div>
+                                <div class="info">
+                                    <p class="tujuan">Poris Plawad - Cibodas</p>
+                                    <p class="operational">05:00 - 19:00</p>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+        <section class="jadwal">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Rute</th>
+                        <th>Tujuan</th>
+                        <th>Nomor Bus</th>
+                        <th>Estimasi</th>
+                    </tr>
+                </thead>
+                <tbody id="busSchedule">
+                    <tr>
+                        <td class="koridor">
+                            <img src="assets/images/koridor-1.svg" alt="Koridor 1" class="koridor">
+                        </td>
+                        <td class="tujuan">Poris Plawad</td>
+                        <td class="busCode">TY821</td>
+                        <td class="">20 menit</td>
+                    </tr>
+
+                    <tr>    
+                    <td class="koridor">
+                        <img src="assets/images/koridor-2.svg" alt="Koridor 1" class="koridor">
+
+                    <td class="tujuan">Poris Plawad</td>
+                    <td class="busCode">TY821</td>
+                    <td class="">30 menit</td>
+                    </tr>
+
+                    <td class="koridor">
+                        <img src="assets/images/koridor-2.svg" alt="Koridor 1" class="koridor">
+                    <td class="tujuan">Poris Plawad</td>
+                    <td class="busCode">TY821</td>
+                    <td class="">30 menit</td>
+                    </tr>
+                    <!-- datanya muncul -->
+                    <!-- Rute nya gambar koridor dari bus nya -->
+                    <!-- Tujuan nya dari ke poris plawad-->
+                    <!-- Nomor bus nya -->
+                    <!-- Estimasi waktu kedatangan bus dari 2 halte sebelum halte stasiun tanah tinggi dan menghilang saat bus melintas halte stasiun tanah tinggi-->
+                </tbody>
+            </table>
+            <iframe src="./map.html" id="map"></iframe>
+            
+        </section>
+    </main>
+    
+    
+
+    <script type="module" src="assets/script/main.js"></script>
+    <script>
+        // Function to display the bus arrival data in the table
+        function displayBusArrivals(busArrivals) {
+            const busScheduleTableBody = document.getElementById('busSchedule');
+            busScheduleTableBody.innerHTML = ''; // Clear existing table content
+
+            busArrivals.forEach(bus => {
+                const row = busScheduleTableBody.insertRow();
+                
+                // Create cells for each data point
+                const corridorCell = row.insertCell();
+                const destinationCell = row.insertCell();
+                const codeCell = row.insertCell();
+                const estimationCell = row.insertCell();
+
+                // Add content to the cells based on the bus data
+                corridorCell.innerHTML = `<img src="assets/images/${bus.corridor}.svg" alt="${bus.corridor}" class="koridor">`;
+                destinationCell.textContent = bus.destination;
+                codeCell.textContent = bus.code;
+                estimationCell.textContent = bus.estimatedArrivalTime;
+            });
+        }
+
+        // Event listener to receive messages from map.html
+        window.addEventListener('message', (event) => {
+            if (event.data.type === 'busArrival') {
+                const busArrivals = event.data.busArrivals;
+                displayBusArrivals(busArrivals); // Call the display function
+            }
+        });
+    </script>
+</body>
+</html>
