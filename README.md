@@ -4,6 +4,7 @@
 
 **Contributors:**
 - Muhammad Sulthan Arif (2310101001)
+- Juli Yanti (juleshwa)
 - David Arnoldio, Erdine Alexander (2310101013, 2310101035)
 
 ## Overview
