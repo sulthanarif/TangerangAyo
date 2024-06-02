@@ -56,6 +56,6 @@ This project was developed as part of the Urban Monitoring course at Pradita Uni
 
 ![Tangerang Ayo](https://github.com/sulthanarif/TangerangAyo/assets/74910542/b6b19f1a-cdc2-491e-ad36-0757ecb03875)
 
-*Developed by Muhammad Sulthan Arif and Contributed by David Arnoldio, Erdine Alexander, 2024.*
+*Developed by Muhammad Sulthan Arif and Contributed by Juli Yanti (juleshwa), David Arnoldio, Erdine Alexander, 2024.*
 
 ---
